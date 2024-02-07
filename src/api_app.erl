@@ -6,17 +6,17 @@
 
 start(_Type, _Args) ->
     Dispatch = cowboy_router:compile([
-        %% {HostMatchm list({PatchMatch, Handler, InitialState})}
+        %% {HostMatchm list({PatchMatch, Constraints, Handler, InitialState})}
         {'_', [
-	       {"/", hello_handler, #{}},
-	       {"/clientes/:id/transacoes", transacoes, #{}},
-	       {"/clientes/:id/extrato", extrato, #{}}
+	       {"/clientes/:id/transacoes", [{id, int}], transacoes, #{}},
+	       {"/clientes/:id/extrato", [{id, int}], extrato, #{}}
+	       %% {'_', hello_handler, #{}}
 	      ]
 	}
     ]),
+
     persistent_term:put(erlang_rinher_dispatch, Dispatch),
-    {ok, _} = cowboy:start_clear(erlang_rinher,
-        [{port, 6969}],
+    {ok, _} = cowboy:start_clear(erlang_rinher, [{port, 6969}],
         #{env => #{dispatch => {persistent_term, erlang_rinher_dispatch}}}
     ),
     api_sup:start_link().
