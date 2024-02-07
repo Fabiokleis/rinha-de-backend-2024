@@ -1,0 +1,20 @@
+{application, db,
+ [{description, "An OTP application"},
+  {vsn, "0.1.0"},
+  {registered, []},
+  {mod, {db_app, []}},
+  {applications,
+   [kernel,
+    stdlib,
+    pgo
+   ]},
+  {env, [{db, [{pools, [{default, #{pool_size => 10,
+                              host => "db",
+                              database => "rinha",
+                              user => "admin",
+			      password => "123"}}]}]}
+   ]},
+  {modules, []},
+  {licenses, ["Apache-2.0"]},
+  {links, []}
+ ]}.
