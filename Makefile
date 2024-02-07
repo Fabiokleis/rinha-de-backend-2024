@@ -1,5 +1,5 @@
 PROJECT = api
-PROJECT_DESCRIPTION = Erlang - Rinha de Backend
+PROJECT_DESCRIPTION = Erlang - Rinha de Backend 2024
 PROJECT_VERSION = 0.1.0
 
 DEPS = cowboy

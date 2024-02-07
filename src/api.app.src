@@ -1,0 +1,16 @@
+{application, api,
+ [{description, "Erlang - Rinha de Backend 2024 An OTP application"},
+  {vsn, "0.1.0"},
+  {registered, []},
+  {mod, {api_app, []}},
+  {applications,
+   [kernel,
+    stdlib,
+    cowboy
+   ]},
+  {env,[]},
+  {modules, []},
+
+  {licenses, ["Apache-2.0"]},
+  {links, []}
+ ]}.
