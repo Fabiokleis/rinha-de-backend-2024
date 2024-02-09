@@ -22,24 +22,23 @@
 formt_resp({Saldo, Limite}) ->
     jiffy:encode(#{<<"saldo">> => Saldo, <<"limite">> => Limite}).
 
-valida_transacao(Limite,
- #{<<"valor">> := Valor, <<"tipo">> := Tipo, <<"descricao">> := Descricao}) 
+valida_transacao(#{<<"valor">> := Valor, <<"tipo">> := Tipo, <<"descricao">> := Descricao}) 
   when 
       is_integer(Valor) andalso Valor > 0
       andalso bit_size(Descricao) =< (8 * ?BYTES_DESC)
-      andalso (Tipo =:= <<"c">> orelse (Tipo =:= <<"d">> andalso Limite >= Valor)) ->
+      andalso (Tipo =:= <<"c">> orelse Tipo =:= <<"d">>) ->
     {transacao, {Valor, Tipo, Descricao}};
 
-valida_transacao(Limite, Info) ->
+valida_transacao(Info) ->
     case catch jiffy:decode(Info, [return_maps]) of
        {'EXIT', _} -> invalido;
-       MapTransacao -> valida_transacao(Limite, MapTransacao)
+       Transacao -> valida_transacao(Transacao)
     end.
 
 salva_transacao(Id, Limite, {_, <<"c">>, _} = T) ->
     case db_data:salva_transacao(Id, T) of
 	#{rows := [{Saldo}]} -> {salvo, {Saldo, Limite}};
-	_ -> inconsistente
+	_ -> banco
     end;
 
 salva_transacao(Id, Limite, {Valor, <<"d">>, _} = T) ->
@@ -48,17 +47,17 @@ salva_transacao(Id, Limite, {Valor, <<"d">>, _} = T) ->
 	    if (Saldo - Valor) >= -Limite ->
 		    case db_data:salva_transacao(Id, T) of
 			#{rows := [{NovoSaldo}]} -> {salvo, {NovoSaldo, Limite}};
-			_ -> inconsistente
+			_ -> banco
 		    end;
 	       true -> inconsistente
 	    end;
-	_ -> inconsistente
+	_ -> banco
     end.
 
 faz_transacao({Id, _, Limite}, [Body]) ->
     case Body of
 	{Info, true} -> 
-	    case valida_transacao(Limite, Info) of
+	    case valida_transacao(Info) of
 		{transacao, T} -> salva_transacao(Id, Limite, T);
 		invalido -> invalido
 	    end;
@@ -80,12 +79,15 @@ init(Req0=#{method := <<"POST">>}, State) ->
 		    {ok, cowboy_req:reply(404, Req), State};
 		inconsistente -> 
 		    io:format("transacao inconsistente~n"),
-		    {ok, cowboy_req:reply(422, Req), State}
+		    {ok, cowboy_req:reply(422, Req), State};
+	        banco ->
+		    {ok, cowboy_req:reply(500, Req), State}
             end;
-	_ -> {ok, cowboy_req:reply(404, Req0), State}
-    end;
+	#{rows := []} -> {ok, cowboy_req:reply(404, Req0), State};
+	banco -> {ok, cowboy_req:reply(500, Req0), State}
+    end.
 
-init(Req, State) ->
-    io:format("Req: ~p~nState: ~p~n", [Req, State]),
-    {ok, Req, State}.
+%%init(Req, State) ->
+%%    io:format("Req: ~p~nState: ~p~n", [Req, State]),
+%%    {ok, Req, State}.
 
