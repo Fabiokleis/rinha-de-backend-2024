@@ -22,7 +22,6 @@
 formt_resp({Saldo, Limite}) ->
     jiffy:encode(#{<<"saldo">> => Saldo, <<"limite">> => Limite}).
 
-
 valida_transacao(Limite,
  #{<<"valor">> := Valor, <<"tipo">> := Tipo, <<"descricao">> := Descricao}) 
   when 
@@ -39,7 +38,7 @@ valida_transacao(Limite, Info) ->
 
 salva_transacao(Id, Limite, {_, <<"c">>, _} = T) ->
     case db_data:salva_transacao(Id, T) of
-	#{rows := [{Saldo}]} -> {salvo, formt_resp({Saldo, Limite})};
+	#{rows := [{Saldo}]} -> {salvo, {Saldo, Limite}};
 	_ -> inconsistente
     end;
 
@@ -48,7 +47,7 @@ salva_transacao(Id, Limite, {Valor, <<"d">>, _} = T) ->
 	#{rows := [{Saldo}]} -> 
 	    if (Saldo - Valor) >= -Limite ->
 		    case db_data:salva_transacao(Id, T) of
-			#{rows := [{NovoSaldo}]} -> {salvo, formt_resp({NovoSaldo, Limite})};
+			#{rows := [{NovoSaldo}]} -> {salvo, {NovoSaldo, Limite}};
 			_ -> inconsistente
 		    end;
 	       true -> inconsistente
@@ -72,8 +71,7 @@ init(Req0=#{method := <<"POST">>}, State) ->
 	    {ok, Body, Req} = cowboy_req:read_urlencoded_body(Req0),
 	    case faz_transacao(Cliente, Body) of
 		{salvo, Json} -> 
-		    io:format("~p~n", [Json]),
-		    {ok, cowboy_req:reply(200, #{<<"content-type">> => <<"application/json">>}, Json, Req)};
+		    {ok, cowboy_req:reply(200, #{<<"content-type">> => <<"application/json">>}, formt_resp(Json), Req)};
 		vazio -> 
 		    io:format("req vazio~n"),
 		    {ok, cowboy_req:reply(404, Req), State};
