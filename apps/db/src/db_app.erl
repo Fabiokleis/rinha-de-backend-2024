@@ -10,9 +10,8 @@
 -export([start/2, stop/1]).
 
 start(_StartType, _StartArgs) ->
-    Val = application:get_env(db, pools, []),
-    io:format("~p~n", [Val]),
-    {Name, PoolConfig} = hd(Val),
+    [{Name, PoolConfig}] = application:get_env(db, pools, []),
+    io:format("~p: ~p~n", [Name, PoolConfig]),
     db_sup:start_link([Name, PoolConfig]).
 
 stop(_State) ->

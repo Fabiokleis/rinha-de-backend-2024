@@ -3,9 +3,11 @@ FROM erlang:alpine AS build
 RUN mkdir /app
 WORKDIR /app
 
+RUN apk add --no-cache build-base
+
 COPY config config/
 ##COPY bin bin/
-COPY src src/
+COPY apps apps/
 COPY rebar.config .
 
 RUN rebar3 release
@@ -18,6 +20,6 @@ RUN apk add --no-cache openssl && \
      apk add --no-cache libstdc++ && \
       apk add --no-cache libgcc
 
-COPY --from=build /app/_build/default/rel/erlang_rinher_api /rel
+COPY --from=build /app/_build/default/rel/rinha /rel
 
-CMD ["/rel/bin/erlang_rinher_api", "foreground"]
+CMD ["/rel/bin/rinha", "foreground"]
