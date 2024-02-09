@@ -10,6 +10,8 @@ submissão feita com:
 
 [@fabiokleis](https://twitter.com/FabioKleis) @ twitter
 
+Por favor não julgue meu código erlang e sql.
+
 ## Build
 ```shell
 rebar3 release
