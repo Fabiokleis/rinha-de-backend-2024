@@ -1,6 +1,7 @@
 # Erlang - Rinha de Backend 2024
 
-![image](https://github.com/Fabiokleis/rinha-de-backend-2024/assets/66813406/39ecb2bc-aefd-4a22-b240-226fbbadf1eb)
+![image](https://github.com/Fabiokleis/rinha-de-backend-2024/assets/66813406/80153942-2b49-43ac-95a7-3c0a8000871d)
+
 
 
 ## fabiokleis
