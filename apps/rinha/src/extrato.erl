@@ -11,35 +11,53 @@ gera_transacao({Valor, Tipo, Descricao, Data}) ->
       <<"realizada_em">> => iso8601:format(Data)
      }.
 
-formt_resp({Limite, Total}, Info) ->
+gera_saldo({Limite, Total}) ->
+    #{     
+     <<"total">> => Total,
+     <<"data_extrato">> => iso8601:format(calendar:universal_time()),
+     <<"limite">> => Limite
+    }.
+
+formt_resp(Saldo, []) ->
+    jiffy:encode(#{<<"saldo">> => gera_saldo(Saldo)});
+
+formt_resp(Saldo, Transacoes) ->
     jiffy:encode(
       #{ 
-	<<"saldo">> => #{<<"total">> => Total, <<"data_extrato">> => iso8601:format(calendar:universal_time()), <<"limite">> => Limite},
-	<<"ultimas_transacoes">> => [gera_transacao(Transacao) || Transacao <- Info] 
+	<<"saldo">> => gera_saldo(Saldo),
+	<<"ultimas_transacoes">> => [gera_transacao(Transacao) || Transacao <- Transacoes] 
        }
      ).
 
-manda_extrato(Req, Saldo, Info) ->
-    {ok, cowboy_req:reply(200, #{<<"content-type">> => <<"application/json">>}, formt_resp(Saldo, Info), Req)}.
+manda_extrato(Req, Saldo, Transacoes) ->
+    {ok, 
+     cowboy_req:reply(200, 
+		      #{<<"content-type">> => <<"application/json">>},
+		      formt_resp(Saldo, Transacoes), Req)}.
 
-gera_saldo(Id) ->
-    case db_data:obtem_saldo(Id, {limite}) of
-	#{rows := [Saldo]} -> {saldo, Saldo};  
+obtem_saldo(Id) ->
+    case db_data:obtem_saldo(Id) of
+	#{rows := [{Saldo}]} -> {saldo, Saldo};  
 	_ -> banco
     end.
 
 init(Req0=#{method := <<"GET">>}, State) ->	    
-    Id = cowboy_req:binding(id, Req0),
-    case db_data:obtem_transacoes(Id) of
+    case db_data:obtem_cliente(cowboy_req:binding(id, Req0)) of
 	#{rows := []} -> {ok, cowboy_req:reply(404, Req0), State};
-	#{rows := Info} -> 
-	    case gera_saldo(Id) of
-		{saldo, Saldo} -> manda_extrato(Req0, Saldo, Info);
-		banco -> {ok, cowboy_req:reply(500, Req0), State} 
+	#{rows := [{Id, _, Limite}]} -> 
+	    case obtem_saldo(Id) of
+		{saldo, Saldo} -> 
+		    case db_data:obtem_transacoes(Id) of
+			#{rows := Transacoes} -> manda_extrato(Req0, {Limite, Saldo}, Transacoes);
+			_ -> {ok, cowboy_req:reply(500, Req0), State}
+		    end;
+		banco -> {ok, cowboy_req:reply(500, Req0), State}
 	    end;
-	_ -> {ok, cowboy_req:reply(500, Req0), State} 
-    end.
+	_ -> {ok, cowboy_req:reply(404, Req0), State}
+    end;
 
-%%init(Req, State) ->
-%%    io:format("Req: ~p~nState: ~p~n", [Req, State]),
-%%    {ok, Req, State}.
+
+init(Req, State) ->
+    io:format("Req: ~p~nState: ~p~n", [Req, State]),
+    {ok, cowboy_req:reply(404, Req), State}.
+
