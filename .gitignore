@@ -16,3 +16,4 @@ deps
 .rebar3
 _build/
 _checkouts/
+load-test/user-files/results
