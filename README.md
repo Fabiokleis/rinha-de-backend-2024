@@ -1,5 +1,8 @@
 # Erlang - Rinha de Backend 2024
 
+![image](https://github.com/Fabiokleis/rinha-de-backend-2024/assets/66813406/39ecb2bc-aefd-4a22-b240-226fbbadf1eb)
+
+
 ## fabiokleis
 submissão feita com:
 - nginx como load balancer
