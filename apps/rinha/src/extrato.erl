@@ -35,25 +35,15 @@ manda_extrato(Req, Saldo, Transacoes) ->
 		      #{<<"content-type">> => <<"application/json">>},
 		      formt_resp(Saldo, Transacoes), Req)}.
 
-obtem_saldo(Id) ->
-    case db_data:obtem_saldo(Id) of
-	#{rows := [{Saldo}]} -> {saldo, Saldo};  
-	_ -> banco
-    end.
-
 init(Req0=#{method := <<"GET">>}, State) ->	    
     case db_data:obtem_cliente(cowboy_req:binding(id, Req0)) of
-	#{rows := []} -> {ok, cowboy_req:reply(404, Req0), State};
-	#{rows := [{Id, _, Limite}]} -> 
-	    case obtem_saldo(Id) of
-		{saldo, Saldo} -> 
-		    case db_data:obtem_transacoes(Id) of
-			#{rows := Transacoes} -> manda_extrato(Req0, {Limite, Saldo}, Transacoes);
-			_ -> {ok, cowboy_req:reply(500, Req0), State}
-		    end;
-		banco -> {ok, cowboy_req:reply(500, Req0), State}
+	#{rows := [{Id, Saldo, Limite}]} -> 
+	    case db_data:obtem_transacoes(Id) of
+		#{rows := Transacoes} -> manda_extrato(Req0, {Limite, Saldo}, Transacoes);
+		_ -> {ok, cowboy_req:reply(500, Req0), State}
 	    end;
-	_ -> {ok, cowboy_req:reply(404, Req0), State}
+	#{rows := []} -> {ok, cowboy_req:reply(404, Req0), State};
+	_ -> {ok, cowboy_req:reply(500, Req0), State}
     end;
 
 
