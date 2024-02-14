@@ -10,7 +10,9 @@
 -export([start/2, stop/1]).
 
 start(_Type, _Args) ->
-    application:ensure_all_started(pgo),
+    application:ensure_all_started(pgo, db),
+    {ok, Porta} = application:get_env(rinha, porta),
+    io:format("~p~n", [Porta]),
     Dispatch = cowboy_router:compile([
         %% {HostMatchm list({PatchMatch, Constraints, Handler, InitialState})}
         {'_', [
@@ -22,7 +24,7 @@ start(_Type, _Args) ->
     ]),
 
     persistent_term:put(erlang_rinher_dispatch, Dispatch),
-    {ok, _} = cowboy:start_clear(erlang_rinher, [{port, 6969}],
+    {ok, _} = cowboy:start_clear(erlang_rinher, [Porta],
         #{env => #{dispatch => {persistent_term, erlang_rinher_dispatch}}}
     ),
 

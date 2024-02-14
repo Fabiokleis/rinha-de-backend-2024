@@ -1,6 +1,6 @@
 CREATE TABLE clientes (
 	id SERIAL PRIMARY KEY,
-	nome VARCHAR(50) NOT NULL,
+	saldo INTEGER NOT NULL,
 	limite INTEGER NOT NULL
 );
 
@@ -15,24 +15,76 @@ CREATE TABLE transacoes (
 		FOREIGN KEY (cliente_id) REFERENCES clientes(id)
 );
 
-CREATE TABLE saldos (
-	id SERIAL PRIMARY KEY,
-	cliente_id INTEGER NOT NULL,
-	valor INTEGER NOT NULL,
-	CONSTRAINT fk_clientes_saldos_id
-		FOREIGN KEY (cliente_id) REFERENCES clientes(id)
-);
-
 DO $$
 BEGIN
-        INSERT INTO clientes (nome, limite)
-        VALUES ('Cleiton Rasta', 1000 * 100),
-               ('Alonzo Church', 800 * 100),
-               ('Marcos Valle', 10000 * 100),
-               ('Vinicius de Moraes', 100000 * 100),
-               ('Jose Raul Capablanca', 5000 * 100);
-	       
-	INSERT INTO saldos (cliente_id, valor)
-		SELECT id, 0 FROM clientes;
+        INSERT INTO clientes (saldo, limite)
+        VALUES (0, 1000 * 100),
+               (0, 800 * 100),
+               (0, 10000 * 100),
+               (0, 100000 * 100),
+               (0, 5000 * 100);
 END;
 $$;
+
+CREATE FUNCTION transacao_credito(
+    id_cliente integer,
+    tipo_salva char(1),
+    valor_salva integer,
+    descricao_salva varchar(10)
+) RETURNS RECORD AS $$ 
+DECLARE
+    cliente clientes%ROWTYPE;
+    retorno RECORD;
+BEGIN
+    SELECT * INTO cliente FROM clientes WHERE id = id_cliente;
+
+    IF NOT FOUND THEN
+       RETORNO := (id_cliente, 'nao_encontrado');
+       RETURN retorno;
+    END IF;
+
+    UPDATE clientes
+    SET saldo = saldo + valor_salva
+    WHERE id = id_cliente
+    RETURNING saldo, limite INTO retorno;
+
+    INSERT INTO transacoes (id, cliente_id, valor, tipo, descricao, realizada_em)
+    VALUES (DEFAULT, id_cliente, valor_salva, tipo_salva, descricao_salva, NOW());
+
+    RETURN retorno;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE FUNCTION transacao_debito(
+    id_cliente integer,
+    tipo_salva char(1),
+    valor_salva integer,
+    descricao_salva varchar(10)
+) RETURNS RECORD AS $$ 
+DECLARE
+   cliente clientes%ROWTYPE;
+   retorno RECORD;
+BEGIN
+    SELECT * INTO cliente FROM clientes WHERE id = id_cliente;
+
+    IF NOT FOUND THEN
+        RETORNO := (id_cliente, 'nao_encontrado');
+	RETURN retorno;
+    END IF;
+
+    IF (cliente.saldo - valor_salva) >= (-1 * cliente.limite) THEN
+        UPDATE clientes
+        SET saldo = saldo + valor_salva
+        WHERE id = id_cliente
+        RETURNING saldo, limite INTO retorno;
+    ELSE
+	RETORNO := (id_cliente, 'inconsistente');
+	RETURN retorno;
+    END IF;
+
+    INSERT INTO transacoes (id, cliente_id, valor, tipo, descricao, realizada_em)
+    VALUES (DEFAULT, id_cliente, valor_salva, tipo_salva, descricao_salva, NOW());
+
+    RETURN retorno;
+END;
+$$ LANGUAGE plpgsql;

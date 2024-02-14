@@ -43,56 +43,33 @@ valida_transacao(Info) ->
        Transacao -> valida_transacao(Transacao)
     end.
 
-salva_transacao(Id, Limite, {_, <<"c">>, _} = T) ->
-    case db_data:salva_transacao(Id, T) of
-	#{rows := [{Saldo}]} -> {salvo, {Saldo, Limite}};
-	_ -> banco
-    end;
-
-salva_transacao(Id, Limite, {Valor, <<"d">>, _} = T) ->
-    case db_data:obtem_saldo(Id) of
-	#{rows := [{Saldo}]} -> 
-	    if (Saldo - Valor) >= (-1 * Limite) ->
-		    case db_data:salva_transacao(Id, T) of
-			#{rows := [{NovoSaldo}]} -> {salvo, {NovoSaldo, Limite}};
-			_ -> banco
-		    end;
-	       true -> inconsistente
-	    end;
-	_ -> banco
+salva_transacao(Id, Transacao) ->
+    case catch db_data:salva_transacao(Id, Transacao) of
+	#{rows := [{{Id, <<"nao_encontrado">>}}]} -> nao_encontrou;
+	#{rows := [{{Id, <<"inconsistente">>}}]} -> inconsistente;
+	#{rows := [{{Saldo, Limite}}]} -> {salvo, {Saldo, Limite}};
+	{error, none_available} -> banco
     end.
 
-faz_transacao({Id, _, Limite}, [Body]) ->
+faz_transacao(Id, [Body]) ->
     case Body of
 	{Info, true} -> 
 	    case valida_transacao(Info) of
-		{transacao, T} -> salva_transacao(Id, Limite, T);
+		{transacao, T} -> salva_transacao(Id, T);
 		invalido -> invalido
 	    end;
 	{_, false} -> vazio
     end.
 
 init(Req0=#{method := <<"POST">>, headers := #{<<"content-type">> := <<"application/json">>}}, State) ->
-    case db_data:obtem_cliente(cowboy_req:binding(id, Req0)) of
-	#{rows := [Cliente]} -> 
-	    {ok, Body, Req} = cowboy_req:read_urlencoded_body(Req0),
-	    case faz_transacao(Cliente, Body) of
-		{salvo, Json} -> 
-		    {ok, cowboy_req:reply(200, #{<<"content-type">> => <<"application/json">>}, formt_resp(Json), Req)};
-		vazio -> 
-		    %%io:format("req vazio~n"),
-		    {ok, cowboy_req:reply(422, Req), State};
-		invalido -> 
-		    io:format("transacao invalida~n"),
-		    {ok, cowboy_req:reply(422, Req), State};
-		inconsistente -> 
-		    %%io:format("transacao inconsistente~n"),
-		    {ok, cowboy_req:reply(422, Req), State};
-	        banco ->
-		    {ok, cowboy_req:reply(500, Req), State}
-            end;
-	#{rows := []} -> {ok, cowboy_req:reply(404, Req0), State};
-	_ -> {ok, cowboy_req:reply(404, Req0), State}
+    {ok, Body, Req} = cowboy_req:read_urlencoded_body(Req0),
+    case faz_transacao(cowboy_req:binding(id, Req), Body) of
+	{salvo, Json} -> {ok, cowboy_req:reply(200, #{<<"content-type">> => <<"application/json">>}, formt_resp(Json), Req)};
+	nao_encontrou -> {ok, cowboy_req:reply(404, Req0), State};
+	inconsistente -> {ok, cowboy_req:reply(422, Req0), State};
+	invalido -> {ok, cowboy_req:reply(422, Req0), State};
+	vazio -> {ok, cowboy_req:reply(422, Req0), State};
+	banco -> {ok, cowboy_req:reply(500, Req0), State}
     end;
 
 init(Req, State) ->
